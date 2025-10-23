@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scientific Calculator</title>
+<style>
+  :root{--bg:#0f1724;--panel:#0b1220;--accent:#06b6d4;--muted:#9aa4b2;--btn:#132033;--danger:#ef4444}
+  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,system-ui,-apple-system; background:linear-gradient(180deg,#071020 0%, #071927 100%); color:#e6eef6}
+  .wrap{max-width:420px;margin:18px auto;padding:14px;background:linear-gradient(180deg,var(--panel),#071225);border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,.6)}
+  .screen{background:#071223;padding:12px;border-radius:10px;color:var(--accent);display:flex;flex-direction:column;gap:6px}
+  .display{font-size:1.15rem;min-height:44px;white-space:nowrap;overflow:auto;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.02);color:#e6eef6}
+  .result{font-size:1.5rem;font-weight:600;color:#fff;padding:6px 10px;min-height:36px; text-align:right}
+  .controls{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .left{flex:1;display:flex;gap:8px}
+  .btn, button{background:var(--btn);border:0;color:#e6eef6;padding:10px;border-radius:8px;font-size:1rem;min-width:44px;cursor:pointer}
+  .btn:active{transform:translateY(1px)}
+  .op{background:transparent;border:1px solid rgba(255,255,255,0.04)}
+  .wide{flex:1;min-width:92px}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+  .big{grid-column:span 2}
+  .accent{background:linear-gradient(180deg,var(--accent),#00a3b8);color:#022}
+  .muted{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03)}
+  .history{margin-top:12px;background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;max-height:110px;overflow:auto;font-size:0.9rem}
+  .history-item{padding:6px;border-radius:6px;margin:4px 0;background:rgba(255,255,255,0.01);display:flex;justify-content:space-between;gap:8px}
+  .footer{margin-top:10px;text-align:center;color:var(--muted);font-size:13px}
+  @media (max-width:420px){.wrap{margin:8px}}
+</style>
+</head>
+<body>
+<div class="wrap" role="application" aria-label="Scientific calculator">
+  <div class="screen">
+    <div class="display" id="expr" aria-live="polite">0</div>
+    <div class="result" id="result">= 0</div>
+
+    <div class="controls">
+      <div class="left">
+        <button class="btn muted" id="degRad">DEG</button>
+        <button class="btn muted" id="mc">MC</button>
+        <button class="btn muted" id="mr">MR</button>
+        <button class="btn muted" id="mPlus">M+</button>
+        <button class="btn muted" id="mMinus">M-</button>
+      </div>
+      <div class="right">
+        <button class="btn op" id="clear">C</button>
+        <button class="btn op" id="del">⌫</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" id="buttons">
+    <!-- row: functions -->
+    <button class="btn" data-in="(">(</button>
+    <button class="btn" data-in=")">)</button>
+    <button class="btn" data-fn="pow">xʸ</button>
+    <button class="btn" data-fn="sqrt">√</button>
+    <button class="btn" data-fn="percent">%</button>
+
+    <!-- row -->
+    <button class="btn" data-fn="sin">sin</button>
+    <button class="btn" data-fn="cos">cos</button>
+    <button class="btn" data-fn="tan">tan</button>
+    <button class="btn" data-fn="ln">ln</button>
+    <button class="btn" data-fn="log">log</button>
+
+    <!-- row -->
+    <button class="btn" data-num="7">7</button>
+    <button class="btn" data-num="8">8</button>
+    <button class="btn" data-num="9">9</button>
+    <button class="btn" data-in="/" title="divide">÷</button>
+    <button class="btn" data-fn="fact">x!</button>
+
+    <!-- row -->
+    <button class="btn" data-num="4">4</button>
+    <button class="btn" data-num="5">5</button>
+    <button class="btn" data-num="6">6</button>
+    <button class="btn" data-in="*" title="multiply">×</button>
+    <button class="btn" data-fn="pow2">x²</button>
+
+    <!-- row -->
+    <button class="btn" data-num="1">1</button>
+    <button class="btn" data-num="2">2</button>
+    <button class="btn" data-num="3">3</button>
+    <button class="btn" data-in="-" title="minus">−</button>
+    <button class="btn" data-fn="ans">Ans</button>
+
+    <!-- row -->
+    <button class="btn big" data-num="0">0</button>
+    <button class="btn" data-in=".">.</button>
+    <button class="btn" data-in="+" title="plus">+</button>
+    <button class="btn accent" id="equals">=</button>
+
+    <!-- extra -->
+    <button class="btn" data-fn="pi">π</button>
+    <button class="btn" data-fn="e">e</button>
+    <button class="btn" data-fn="abs">abs</button>
+    <button class="btn" data-fn="exp">exp</button>
+    <button class="btn" data-fn="clearHistory">hist</button>
+  </div>
+
+  <div class="history" id="history" aria-live="polite">
+    <!-- history items -->
+  </div>
+
+  <div class="footer">Save this file and open it in your browser → Add to Home screen (creates APK-like shortcut)</div>
+</div>
+
+<script>
+(() => {
+  const exprEl = document.getElementById('expr');
+  const resEl = document.getElementById('result');
+  const historyEl = document.getElementById('history');
+  const degRadBtn = document.getElementById('degRad');
+
+  let expr = '';
+  let lastAns = 0;
+  let memory = 0;
+  let isDeg = true;
+  let history = [];
+
+  function render() {
+    exprEl.textContent = expr || '0';
+    resEl.textContent = '= ' + (Number.isFinite(lastAns) ? formatNum(lastAns) : lastAns);
+    renderHistory();
+    degRadBtn.textContent = isDeg ? 'DEG' : 'RAD';
+  }
+
+  function formatNum(n) {
+    if (typeof n !== 'number' || !Number.isFinite(n)) return String(n);
+    if (Math.abs(n) >= 1e12 || Math.abs(n) < 1e-8 && n !== 0) return n.toExponential(9).replace(/(?:\.0+|(\.\d+?)0+)e/, '$1e');
+    return Number.parseFloat(n.toPrecision(12)).toString();
+  }
+
+  function pushChar(s) { expr += s; render(); }
+  function clearAll() { expr=''; lastAns=0; history=[]; memory=0; render(); renderHistory(); }
+  function backspace() { expr = expr.slice(0,-1); render(); }
+
+  function addHistory(item) {
+    history.unshift(item);
+    if (history.length>20) history.pop();
+    localStorage.setItem('calc_history_v1', JSON.stringify(history));
+  }
+
+  function renderHistory() {
+    historyEl.innerHTML = '';
+    if (!history.length) { historyEl.innerHTML = '<div style="opacity:.5;padding:6px">No history</div>'; return; }
+    history.forEach(h=>{
+      const div = document.createElement('div'); div.className = 'history-item';
+      div.innerHTML = `<div style="opacity:.85">${h.e}</div><div style="font-weight:600">${h.r}</div>`;
+      div.onclick = () => { expr = h.e; lastAns = h.r; render(); };
+      historyEl.appendChild(div);
+    });
+  }
+
+  // math helpers
+  function fact(n){
+    if (!Number.isFinite(n) || n<0) return NaN;
+    if (n === 0) return 1;
+    if (n % 1 !== 0) { // gamma via approximation for non-integers? use stirling-ish: use gamma approximation is complex => reject
+      return NaN;
+    }
+    let v=1;
+    for(let i=1;i<=n;i++) v*=i;
+    return v;
+  }
+  function degToRad(x){ return x * Math.PI / 180; }
+  function sanitizeAndEval(input) {
+    if (!input || typeof input !== 'string') return NaN;
+    // unify characters
+    let s = input.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/π/g,'pi').replace(/,/g,'.').trim();
+
+    // replace Ans token
+    s = s.replace(/\bAns\b/ig, String(lastAns));
+
+    // handle percent: turn "x%" into "(x/100)"
+    s = s.replace(/(\d+(\.\d+)?|\))%/g, '($1/100)');
+
+    // handle power caret
+    s = s.replace(/\^/g,'**');
+
+    // replace function names with Math equivalents, but handle trig with deg/rad
+    const trig = ['sin','cos','tan','asin','acos','atan'];
+    s = s.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g, (m, name) => {
+      name = name.toLowerCase();
+      if (trig.includes(name)) {
+        // wrap argument: if DEG mode, convert inside
+        if (isDeg) {
+          // sin(x) -> Math.sin((x)*PI/180)
+          return `__TRIG_${name}(`;
+        } else {
+          return `Math.${name}(`;
+        }
+      }
+      switch(name){
+        case 'sqrt': return 'Math.sqrt(';
+        case 'abs': return 'Math.abs(';
+        case 'ln': return 'Math.log(';
+        case 'log': return 'Math.log10(';
+        case 'log10': return 'Math.log10(';
+        case 'exp': return 'Math.exp(';
+        case 'pow': return 'Math.pow(';
+        default: return name+'('; // allow e.g. custom like fact( but we'll map fact separately
+      }
+    });
+
+    // map trig placeholders to wrappers if deg
+    if (isDeg) {
+      s = s.replace(/__TRIG_sin\(/g, 'Math.sin(degToRad(');
+      s = s.replace(/__TRIG_cos\(/g, 'Math.cos(degToRad(');
+      s = s.replace(/__TRIG_tan\(/g, 'Math.tan(degToRad(');
+      s = s.replace(/__TRIG_asin\(/g, 'radToDeg(Math.asin(');
+      s = s.replace(/__TRIG_acos\(/g, 'radToDeg(Math.acos(');
+      s = s.replace(/__TRIG_atan\(/g, 'radToDeg(Math.atan(');
+      // we need radToDeg defined in context
+    }
+
+    // replace pi literal
+    s = s.replace(/\bpi\b/ig, 'Math.PI');
+
+    // replace "e()" use? user may want constant e -> provide E token uppercase
+    s = s.replace(/\be\b/g, (m, idx, str) => {
+      // avoid replacing scientific notation like 1e-5 (keep e if it's part of number)
+      // if char before or after is digit or +-. then skip
+      const before = str[idx-1], after = str[idx+1];
+      if ((before && /[0-9.\-+]/.test(before)) || (after && /[0-9.\-+]/.test(after))) return m;
+      return 'Math.E';
+    });
+
+    // factorial: convert "number!" or "(expr)!" to fact(...) iteratively
+    // handle nested: we loop until no '!' left
+    let safety = 0;
+    while (s.includes('!') && safety++ < 30) {
+      // number!
+      s = s.replace(/(\d+(\.\d+)?)!/g, 'fact($1)');
+      // (expr)!
+      s = s.replace(/\(([^()]+)\)!/g, '(fact($1))');
+    }
+
+    // handle pow2 x² shortcut replaced earlier via pow2 button to ^2
+    // block disallowed sequences — after our replacements only characters we allow should remain
+    // allowed regex: digits, operators, Math, parentheses, letters in known tokens, .,*
+    // As last defense, disallow letters except 'Math','fact','degToRad','radToDeg'
+    // Introduce radToDeg for deg-mode inverse trig
+    s = s.replace(/radToDeg\(/g, '(x=>((x)*180/Math.PI))('); // this is a trick; we'll actually define radToDeg function below in the eval scope
+
+    // final safety check: allow only these tokens
+    const allowed = /^[0-9+\-*/^%().,eE*\sMathfacontrdgbipoxlTaIsn]+$/i;
+    // we loosened tokens; instead we attempt to evaluate with Function but inside a controlled scope:
+    try {
+      // create a small safe-eval environment by using Function with explicit references
+      const fn = new Function('fact','degToRad','radToDeg','Math','return (' + s + ')');
+      // radToDeg function:
+      const radToDeg = x => x * 180 / Math.PI;
+      const val = fn(fact, degToRad, radToDeg, Math);
+      return val;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  // UI wiring
+  document.getElementById('buttons').addEventListener('click', e => {
+    const t = e.target;
+    if (!t) return;
+    if (t.dataset.num) return pushChar(t.dataset.num);
+    if (t.dataset.in) {
+      const s = t.dataset.in;
+      // keep operators pretty
+      if (s === '/') pushChar('/');
+      else if (s === '*') pushChar('*');
+      else pushChar(s);
+      return;
+    }
+    if (t.dataset.fn) {
+      const fn = t.dataset.fn;
+      switch(fn){
+        case 'sin': pushChar('sin('); break;
+        case 'cos': pushChar('cos('); break;
+        case 'tan': pushChar('tan('); break;
+        case 'ln': pushChar('ln('); break;
+        case 'log': pushChar('log('); break;
+        case 'sqrt': pushChar('sqrt('); break;
+        case 'percent': pushChar('%'); break;
+        case 'pi': pushChar('pi'); break;
+        case 'e': pushChar('e'); break;
+        case 'abs': pushChar('abs('); break;
+        case 'exp': pushChar('exp('); break;
+        case 'fact': pushChar('!'); break;
+        case 'pow': pushChar('**'); break;
+        case 'pow2': pushChar('**2'); break;
+        case 'ans': pushChar('Ans'); break;
+        case 'clearHistory': history=[]; localStorage.removeItem('calc_history_v1'); renderHistory(); break;
+        default: break;
+      }
+      return;
+    }
+  });
+
+  document.getElementById('clear').addEventListener('click', ()=>{
+    expr=''; render();
+  });
+  document.getElementById('del').addEventListener('click', backspace);
+  document.getElementById('equals').addEventListener('click', compute);
+  degRadBtn.addEventListener('click', ()=>{ isDeg = !isDeg; render(); });
+
+  // memory
+  document.getElementById('mc').addEventListener('click', ()=>{ memory = 0; render(); });
+  document.getElementById('mr').addEventListener('click', ()=>{ pushChar(String(memory)); render(); });
+  document.getElementById('mPlus').addEventListener('click', ()=>{ memory = (Number(memory) || 0) + (Number(lastAns)||0); render(); });
+  document.getElementById('mMinus').addEventListener('click', ()=>{ memory = (Number(memory) || 0) - (Number(lastAns)||0); render(); });
+
+  // keyboard support
+  window.addEventListener('keydown', e => {
+    if (e.key >= '0' && e.key <= '9') { pushChar(e.key); return; }
+    if (e.key === '.') { pushChar('.'); return; }
+    if (e.key === 'Enter') { compute(); return; }
+    if (e.key === 'Backspace') { backspace(); return; }
+    if (e.key === 'Escape') { expr=''; render(); return; }
+    if ('+-*/%^()'.includes(e.key)) { pushChar(e.key); return; }
+  });
+
+  function compute(){
+    if (!expr.trim()) return;
+    try {
+      const val = sanitizeAndEval(expr);
+      lastAns = (typeof val === 'number' && !isNaN(val)) ? val : val;
+      addHistory({e: expr, r: lastAns});
+      localStorage.setItem('calc_history_v1', JSON.stringify(history));
+      expr = String(lastAns);
+      render();
+    } catch(err) {
+      lastAns = 'Error';
+      resEl.textContent = '= Error';
+    }
+  }
+
+  // load saved
+  try {
+    const saved = JSON.parse(localStorage.getItem('calc_history_v1') || '[]');
+    if (Array.isArray(saved)) history = saved;
+  } catch(e){}
+  render();
+
+  // expose helper functions to Function scope for deg-mode evaluation
+  window.fact = fact;
+  window.degToRad = degToRad;
+  window.radToDeg = x => x * 180 / Math.PI;
+
+  // convenience: long-press clear to reset everything
+  let clearTimer;
+  document.getElementById('clear').addEventListener('mousedown', ()=>{ clearTimer = setTimeout(()=>{ clearAll(); }, 700); });
+  document.getElementById('clear').addEventListener('mouseup', ()=>{ clearTimeout(clearTimer); });
+
+  // small UX: tap result to copy
+  resEl.addEventListener('click', ()=> {
+    const t = String(lastAns);
+    navigator.clipboard?.writeText(t).then(()=>{ resEl.style.opacity=.7; setTimeout(()=>resEl.style.opacity=1,120); });
+  });
+
+})();
+</script>
+</body>
+</html>
